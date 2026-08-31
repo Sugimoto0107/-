@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { PREFECTURES } from "@/lib/prefectures";
 import type {
   BookingType,
@@ -10,10 +10,11 @@ import type {
   IndividualFormData,
   TimeSlot,
 } from "@/types";
+import { resolveDuration } from "@/types";
 
 type Step = "form" | "time" | "confirm" | "complete";
 
-const STEP_LABELS = ["情報入力", "日程選択", "確認・予約"];
+const STEP_LABELS = ["日程選択", "情報入力", "確認・予約"];
 
 function StepIndicator({
   currentStep,
@@ -23,7 +24,7 @@ function StepIndicator({
   isCompany: boolean;
 }) {
   const stepIndex =
-    currentStep === "form" ? 0 : currentStep === "time" ? 1 : 2;
+    currentStep === "time" ? 0 : currentStep === "form" ? 1 : 2;
   const accentColor = isCompany ? "blue" : "violet";
 
   return (
@@ -150,12 +151,12 @@ function CompanyForm({
           className={inputClass(!!errors.email)}
         />
       </FieldGroup>
-      <FieldGroup label="電話番号" required error={errors.phone}>
+      <FieldGroup label="電話番号（ハイフンなし）" required error={errors.phone}>
         <input
           type="tel"
           value={data.phone}
           onChange={(e) => onChange("phone", e.target.value)}
-          placeholder="03-0000-0000"
+          placeholder="0300000000"
           className={inputClass(!!errors.phone)}
         />
       </FieldGroup>
@@ -227,12 +228,12 @@ function IndividualForm({
           className={inputClass(!!errors.email)}
         />
       </FieldGroup>
-      <FieldGroup label="電話番号" required error={errors.phone}>
+      <FieldGroup label="電話番号（ハイフンなし）" required error={errors.phone}>
         <input
           type="tel"
           value={data.phone}
           onChange={(e) => onChange("phone", e.target.value)}
-          placeholder="090-0000-0000"
+          placeholder="09000000000"
           className={inputClass(!!errors.phone)}
         />
       </FieldGroup>
@@ -252,10 +253,12 @@ function IndividualForm({
 // --- Time Slot Picker ---
 function TimeSlotPicker({
   type,
+  durationMinutes,
   selectedSlot,
   onSelect,
 }: {
   type: BookingType;
+  durationMinutes: number;
   selectedSlot: TimeSlot | null;
   onSelect: (slot: TimeSlot) => void;
 }) {
@@ -264,12 +267,15 @@ function TimeSlotPicker({
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const isCompany = type === "company";
+  const timeSlotRef = useRef<HTMLDivElement>(null);
 
   const fetchSlots = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/availability?type=${type}`);
+      const res = await fetch(
+        `/api/availability?type=${type}&duration=${durationMinutes}`
+      );
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setSlots(data.slots);
@@ -281,7 +287,7 @@ function TimeSlotPicker({
     } finally {
       setLoading(false);
     }
-  }, [type]);
+  }, [type, durationMinutes]);
 
   useEffect(() => {
     fetchSlots();
@@ -343,7 +349,12 @@ function TimeSlotPicker({
           {dates.map((date) => (
             <button
               key={date}
-              onClick={() => setSelectedDate(date)}
+              onClick={() => {
+                setSelectedDate(date);
+                setTimeout(() => {
+                  timeSlotRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                }, 50);
+              }}
               className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-all ${
                 selectedDate === date
                   ? isCompany
@@ -368,7 +379,7 @@ function TimeSlotPicker({
       </div>
 
       {/* Time slots */}
-      <div>
+      <div ref={timeSlotRef}>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
           時間を選択
         </p>
@@ -457,7 +468,7 @@ function ConfirmationView({
           {slot.label}
         </p>
         <p className={`text-sm mt-1 ${isCompany ? "text-blue-700" : "text-violet-700"}`}>
-          {isCompany ? "商談（40分）" : "面談（30分）"} · Google Meet
+          {isCompany ? "商談（40分） · Google Meet" : "面談（30分） · 電話"}
         </p>
       </div>
 
@@ -552,32 +563,6 @@ function CompleteView({
         </div>
       )}
 
-      {meetLink && (
-        <a
-          href={meetLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold mb-6 ${
-            isCompany
-              ? "bg-blue-600 hover:bg-blue-700"
-              : "bg-violet-600 hover:bg-violet-700"
-          }`}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
-          Google Meet に参加する
-        </a>
-      )}
-
-      <div>
-        <a
-          href="/"
-          className="text-sm text-gray-500 hover:text-gray-700 underline"
-        >
-          トップページに戻る
-        </a>
-      </div>
     </div>
   );
 }
@@ -589,8 +574,9 @@ function BookingPageContent() {
   const type: BookingType =
     typeParam === "individual" ? "individual" : "company";
   const isCompany = type === "company";
+  const durationMinutes = resolveDuration(type, searchParams.get("duration"));
 
-  const [step, setStep] = useState<Step>("form");
+  const [step, setStep] = useState<Step>("time");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [meetLink, setMeetLink] = useState("");
@@ -656,18 +642,18 @@ function BookingPageContent() {
     return Object.keys(errors).length === 0;
   }
 
-  function handleFormNext() {
-    const valid = isCompany ? validateCompanyForm() : validateIndividualForm();
-    if (valid) setStep("time");
-  }
-
   function handleTimeNext() {
     if (!selectedSlot) {
       setSlotError("日程を選択してください");
       return;
     }
     setSlotError(null);
-    setStep("confirm");
+    setStep("form");
+  }
+
+  function handleFormNext() {
+    const valid = isCompany ? validateCompanyForm() : validateIndividualForm();
+    if (valid) setStep("confirm");
   }
 
   async function handleSubmit() {
@@ -721,8 +707,8 @@ function BookingPageContent() {
         </h1>
         <p className="text-gray-500 text-sm mt-1">
           {isCompany
-            ? "40分間のオンライン商談"
-            : "30分間の面談（電話 + Google Meet）"}
+            ? `${durationMinutes}分間のオンライン商談`
+            : `${durationMinutes}分間の面談（電話）`}
         </p>
       </div>
 
@@ -756,7 +742,16 @@ function BookingPageContent() {
                 }
               />
             )}
-            <div className="flex justify-end mt-8">
+            <div className="flex justify-between mt-8">
+              <button
+                onClick={() => setStep("time")}
+                className="px-6 py-3 rounded-xl text-gray-600 font-semibold text-sm border border-gray-300 hover:bg-gray-50 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                前へ
+              </button>
               <button
                 onClick={handleFormNext}
                 className={`px-8 py-3 rounded-xl text-white font-semibold text-sm flex items-center gap-2 ${accentBg}`}
@@ -777,6 +772,7 @@ function BookingPageContent() {
             </h2>
             <TimeSlotPicker
               type={type}
+              durationMinutes={durationMinutes}
               selectedSlot={selectedSlot}
               onSelect={(slot) => {
                 setSelectedSlot(slot);
@@ -786,16 +782,7 @@ function BookingPageContent() {
             {slotError && (
               <p className="text-red-500 text-sm mt-3">{slotError}</p>
             )}
-            <div className="flex justify-between mt-8">
-              <button
-                onClick={() => setStep("form")}
-                className="px-6 py-3 rounded-xl text-gray-600 font-semibold text-sm border border-gray-300 hover:bg-gray-50 flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                前へ
-              </button>
+            <div className="flex justify-end mt-8">
               <button
                 onClick={handleTimeNext}
                 className={`px-8 py-3 rounded-xl text-white font-semibold text-sm flex items-center gap-2 ${accentBg}`}
@@ -826,7 +813,7 @@ function BookingPageContent() {
             )}
             <div className="flex justify-between mt-8">
               <button
-                onClick={() => setStep("time")}
+                onClick={() => setStep("form")}
                 disabled={submitting}
                 className="px-6 py-3 rounded-xl text-gray-600 font-semibold text-sm border border-gray-300 hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50"
               >

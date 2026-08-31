@@ -13,6 +13,7 @@ import {
   parseISO,
 } from "date-fns";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
+import * as HolidayJp from "@holiday-jp/holiday_jp";
 import type { TimeSlot } from "@/types";
 
 const TIMEZONE = "Asia/Tokyo";
@@ -49,6 +50,55 @@ function formatJapaneseTime(date: Date): string {
   return `${h}:${m}`;
 }
 
+function isHoliday(date: Date): boolean {
+  // Use JST date for holiday check
+  const jst = toZonedTime(date, TIMEZONE);
+  return HolidayJp.isHoliday(jst);
+}
+
+function makeJstTime(base: Date, hour: number, minute: number): Date {
+  const zoned = toZonedTime(base, TIMEZONE);
+  return fromZonedTime(
+    setMilliseconds(setSeconds(setMinutes(setHours(zoned, hour), minute), 0), 0),
+    TIMEZONE
+  );
+}
+
+// 予約枠の開始時刻は 00分 / 30分 のみに揃える（10分スタートなどを出さない）
+const SLOT_INTERVAL_MINUTES = 30;
+
+// 指定した時刻を 00分 / 30分 のグリッドに切り上げる
+function ceilToSlotGrid(hour: number, minute: number): { hour: number; minute: number } {
+  const total = hour * 60 + minute;
+  const ceiled = Math.ceil(total / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES;
+  return { hour: Math.floor(ceiled / 60), minute: ceiled % 60 };
+}
+
+// 1日分の枠を生成する。開始時刻は SLOT_INTERVAL_MINUTES 刻み、
+// 所要時間ぶん確保できない枠（終了が受付終了を超えるもの）は作らない。
+function generateDaySlots(
+  day: Date,
+  openHour: number,
+  openMinute: number,
+  closeHour: number,
+  closeMinute: number,
+  durationMinutes: number
+): { start: Date; end: Date }[] {
+  const slots: { start: Date; end: Date }[] = [];
+  const open = ceilToSlotGrid(openHour, openMinute);
+  let slotStart = makeJstTime(day, open.hour, open.minute);
+  const dayEnd = makeJstTime(day, closeHour, closeMinute);
+
+  while (isBefore(slotStart, dayEnd)) {
+    const slotEnd = addMinutes(slotStart, durationMinutes);
+    if (isAfter(slotEnd, dayEnd)) break;
+    slots.push({ start: slotStart, end: slotEnd });
+    slotStart = addMinutes(slotStart, SLOT_INTERVAL_MINUTES);
+  }
+
+  return slots;
+}
+
 function generateSlots(durationMinutes: number): { start: Date; end: Date }[] {
   const slots: { start: Date; end: Date }[] = [];
   const now = new Date();
@@ -57,28 +107,17 @@ function generateSlots(durationMinutes: number): { start: Date; end: Date }[] {
 
   let current = startDate;
   while (isBefore(current, endDate)) {
-    // Skip weekends
-    if (!isWeekend(current)) {
-      // Business hours: 9:00 - 18:00 JST
-      // Generate slots from 9:00
-      const dayStart = fromZonedTime(
-        setMilliseconds(setSeconds(setMinutes(setHours(toZonedTime(current, TIMEZONE), 9), 0), 0), 0),
-        TIMEZONE
-      );
-      const dayEnd = fromZonedTime(
-        setMilliseconds(setSeconds(setMinutes(setHours(toZonedTime(current, TIMEZONE), 18), 0), 0), 0),
-        TIMEZONE
-      );
+    const weekend = isWeekend(current);
+    const holiday = isHoliday(current);
 
-      let slotStart = dayStart;
-      while (isBefore(slotStart, dayEnd)) {
-        const slotEnd = addMinutes(slotStart, durationMinutes);
-        if (!isAfter(slotEnd, dayEnd)) {
-          slots.push({ start: slotStart, end: slotEnd });
-        }
-        slotStart = addMinutes(slotStart, durationMinutes);
-      }
+    if (weekend || holiday) {
+      // Weekends & holidays: 21:30 - 23:00 JST
+      slots.push(...generateDaySlots(current, 21, 30, 23, 0, durationMinutes));
+    } else {
+      // Weekdays: 9:30 - 23:00 JST
+      slots.push(...generateDaySlots(current, 9, 30, 23, 0, durationMinutes));
     }
+
     current = addDays(current, 1);
   }
 

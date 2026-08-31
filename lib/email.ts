@@ -179,6 +179,38 @@ function buildIndividualEmailHtml(params: {
 </html>`;
 }
 
+export async function sendAdminNotificationEmail(params: {
+  type: BookingType;
+  formData: CompanyFormData | IndividualFormData;
+  slot: { start: string; end: string };
+  meetLink: string;
+  eventTitle: string;
+}): Promise<void> {
+  const { type, formData, slot, meetLink, eventTitle } = params;
+  const transporter = getTransporter();
+  const fromName = process.env.GMAIL_FROM_NAME || "スケジュール調整";
+  const adminEmail = "m.sugimoto@hokiraon.jp";
+
+  const dateTimeStr = formatDateTime(slot.start);
+  const endTimeStr = formatTime(slot.end);
+
+  let details = "";
+  if (type === "company") {
+    const d = formData as CompanyFormData;
+    details = `会社名: ${d.companyName}\n担当者: ${d.contactName}\n電話: ${d.phone}\nメール: ${d.email}${d.notes ? `\n備考: ${d.notes}` : ""}`;
+  } else {
+    const d = formData as IndividualFormData;
+    details = `氏名: ${d.name}\n年齢: ${d.age}歳\n居住地: ${d.prefecture}\n電話: ${d.phone}\nメール: ${d.email}${d.notes ? `\n備考: ${d.notes}` : ""}`;
+  }
+
+  await transporter.sendMail({
+    from: `"${fromName}" <${adminEmail}>`,
+    to: adminEmail,
+    subject: `【新規予約】${eventTitle}`,
+    text: `新しい予約が入りました。\n\n【予約内容】\n${eventTitle}\n日時: ${dateTimeStr}〜${endTimeStr}\n\n【お客様情報】\n${details}\n\nGoogle Meet: ${meetLink}`,
+  });
+}
+
 export async function sendConfirmationEmail(params: {
   type: BookingType;
   formData: CompanyFormData | IndividualFormData;

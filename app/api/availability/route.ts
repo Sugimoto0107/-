@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAvailableSlots } from "@/lib/google-calendar";
+import { resolveDuration } from "@/types";
+import type { BookingType } from "@/types";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const type = searchParams.get("type");
+  const type: BookingType =
+    searchParams.get("type") === "individual" ? "individual" : "company";
 
-  const durationMinutes = type === "individual" ? 30 : 40;
+  const durationMinutes = resolveDuration(type, searchParams.get("duration"));
 
   try {
     const slots = await getAvailableSlots(durationMinutes);

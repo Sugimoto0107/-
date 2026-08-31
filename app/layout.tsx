@@ -1,9 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "スケジュール調整",
+  title: "ホキラオン杉本との日程調整",
   description: "商談・面談のご予約はこちらからお申し込みください",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -33,16 +38,14 @@ export default function RootLayout({
                 </svg>
               </div>
               <span className="font-bold text-gray-900 text-lg">
-                スケジュール調整
+                ホキラオン杉本との日程調整
               </span>
             </a>
           </div>
         </header>
         <main className="max-w-4xl mx-auto px-4 py-8">{children}</main>
         <footer className="border-t border-gray-200 mt-16">
-          <div className="max-w-4xl mx-auto px-4 py-6 text-center text-sm text-gray-500">
-            © 2024 スケジュール調整
-          </div>
+          <div className="max-w-4xl mx-auto px-4 py-6" />
         </footer>
       </body>
     </html>

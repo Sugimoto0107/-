@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createCalendarEvent } from "@/lib/google-calendar";
-import { sendConfirmationEmail } from "@/lib/email";
+import { sendConfirmationEmail, sendAdminNotificationEmail } from "@/lib/email";
 import type { BookingRequest, CompanyFormData, IndividualFormData } from "@/types";
 
 export async function POST(request: NextRequest) {
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       const data = formData as CompanyFormData;
       attendeeEmail = data.email;
       attendeeName = `${data.contactName}（${data.companyName}）`;
-      eventTitle = "商談";
+      eventTitle = `【オンライン】${data.companyName} ${data.contactName}様/ホキラオン杉本`;
       eventDescription = [
         `会社名: ${data.companyName}`,
         `担当者: ${data.contactName}`,
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       const data = formData as IndividualFormData;
       attendeeEmail = data.email;
       attendeeName = data.name;
-      eventTitle = "面談";
+      eventTitle = `【電話】${data.name}様/ホキラオン杉本`;
       eventDescription = [
         `氏名: ${data.name}`,
         `年齢: ${data.age}歳`,
@@ -55,13 +55,11 @@ export async function POST(request: NextRequest) {
       description: eventDescription,
     });
 
-    // Send confirmation email
-    await sendConfirmationEmail({
-      type,
-      formData,
-      slot,
-      meetLink,
-    });
+    // Send confirmation email to attendee and admin
+    await Promise.all([
+      sendConfirmationEmail({ type, formData, slot, meetLink }),
+      sendAdminNotificationEmail({ type, formData, slot, meetLink, eventTitle }),
+    ]);
 
     return NextResponse.json({ success: true, eventId, meetLink });
   } catch (error) {
