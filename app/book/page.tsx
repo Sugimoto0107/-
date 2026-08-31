@@ -419,10 +419,12 @@ function TimeSlotPicker({
 // --- Confirmation View ---
 function ConfirmationView({
   type,
+  durationMinutes,
   formData,
   slot,
 }: {
   type: BookingType;
+  durationMinutes: number;
   formData: CompanyFormData | IndividualFormData;
   slot: TimeSlot;
 }) {
@@ -468,7 +470,9 @@ function ConfirmationView({
           {slot.label}
         </p>
         <p className={`text-sm mt-1 ${isCompany ? "text-blue-700" : "text-violet-700"}`}>
-          {isCompany ? "商談（40分） · Google Meet" : "面談（30分） · 電話"}
+          {isCompany
+            ? `商談（${durationMinutes}分） · Google Meet`
+            : `面談（${durationMinutes}分） · 電話`}
         </p>
       </div>
 
@@ -803,6 +807,7 @@ function BookingPageContent() {
             </h2>
             <ConfirmationView
               type={type}
+              durationMinutes={durationMinutes}
               formData={isCompany ? companyData : individualData}
               slot={selectedSlot}
             />
