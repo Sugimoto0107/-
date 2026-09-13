@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import type { BookingType, CompanyFormData, IndividualFormData } from "@/types";
+import { isRecrootsInterview } from "@/types";
 
 function getTransporter() {
   return nodemailer.createTransport({
@@ -42,6 +43,8 @@ function buildCompanyEmailHtml(params: {
   const { formData, slot, meetLink } = params;
   const dateTimeStr = formatDateTime(slot.start);
   const endTimeStr = formatTime(slot.end);
+  // RECROOTSの取材枠は「商談」と呼ばない
+  const label = isRecrootsInterview("company", slot) ? "取材" : "商談";
 
   return `
 <!DOCTYPE html>
@@ -50,13 +53,13 @@ function buildCompanyEmailHtml(params: {
 <body style="font-family: 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; background:#f9fafb; margin:0; padding:24px;">
   <div style="max-width:560px; margin:0 auto; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
     <div style="background:#2563eb; padding:32px 40px;">
-      <h1 style="color:#fff; margin:0; font-size:22px; font-weight:700;">商談のご予約が確定しました</h1>
+      <h1 style="color:#fff; margin:0; font-size:22px; font-weight:700;">${label}のご予約が確定しました</h1>
     </div>
     <div style="padding:32px 40px;">
       <p style="color:#374151; font-size:15px; line-height:1.7;">
         ${formData.contactName} 様<br><br>
         この度はご予約いただきありがとうございます。<br>
-        以下の日程で商談のご予約が確定しました。
+        以下の日程で${label}のご予約が確定しました。
       </p>
 
       <div style="background:#f3f4f6; border-radius:8px; padding:20px 24px; margin:24px 0;">
@@ -230,7 +233,7 @@ export async function sendConfirmationEmail(params: {
   if (type === "company") {
     const data = formData as CompanyFormData;
     toEmail = data.email;
-    subject = `【日程確定】商談のご予約が完了しました`;
+    subject = `【日程確定】${isRecrootsInterview(type, slot) ? "取材" : "商談"}のご予約が完了しました`;
     html = buildCompanyEmailHtml({ formData: data, slot, meetLink });
   } else {
     const data = formData as IndividualFormData;

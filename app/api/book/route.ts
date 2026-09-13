@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createCalendarEvent } from "@/lib/google-calendar";
 import { sendConfirmationEmail, sendAdminNotificationEmail } from "@/lib/email";
 import type { BookingRequest, CompanyFormData, IndividualFormData } from "@/types";
+import { isRecrootsInterview } from "@/types";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +19,9 @@ export async function POST(request: NextRequest) {
       const data = formData as CompanyFormData;
       attendeeEmail = data.email;
       attendeeName = `${data.contactName}（${data.companyName}）`;
-      eventTitle = `【オンライン】${data.companyName} ${data.contactName}様/ホキラオン杉本`;
+      eventTitle = isRecrootsInterview(type, slot)
+        ? `【オンライン】${data.companyName} ${data.contactName}様/RECROOTS取材`
+        : `【オンライン】${data.companyName} ${data.contactName}様/ホキラオン杉本`;
       eventDescription = [
         `会社名: ${data.companyName}`,
         `担当者: ${data.contactName}`,

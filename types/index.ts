@@ -17,6 +17,22 @@ export function resolveDuration(
     : DEFAULT_COMPANY_DURATION;
 }
 
+/**
+ * 企業40分はRECROOTSの取材枠として運用している。商談ではないので、
+ * カレンダーの予定名も確認メールの文言も分ける。
+ * 予約後は所要時間しか手がかりが無いため、枠の長さで判定する。
+ */
+export function isRecrootsInterview(
+  type: BookingType,
+  slot: { start: string; end: string }
+): boolean {
+  if (type !== "company") return false;
+  const minutes = Math.round(
+    (new Date(slot.end).getTime() - new Date(slot.start).getTime()) / 60000
+  );
+  return minutes === DEFAULT_COMPANY_DURATION;
+}
+
 export interface CompanyFormData {
   companyName: string;
   contactName: string;
