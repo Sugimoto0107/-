@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { PREFECTURES } from "@/lib/prefectures";
@@ -693,6 +694,18 @@ function BookingPageContent() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      {/* カバー。予約の画面だと一目で分かるよう、社名ロゴを最上部に置く */}
+      <div className="mb-6 rounded-2xl border border-gray-200 bg-white px-6 py-8 shadow-sm">
+        <Image
+          src="/hokiraon-logo.png"
+          alt="ホキラオン株式会社"
+          width={660}
+          height={260}
+          priority
+          className="mx-auto h-16 w-auto md:h-20"
+        />
+      </div>
+
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
