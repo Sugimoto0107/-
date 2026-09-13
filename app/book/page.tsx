@@ -471,7 +471,9 @@ function ConfirmationView({
           {slot.label}
         </p>
         <p className={`text-sm mt-1 ${isCompany ? "text-blue-700" : "text-violet-700"}`}>
-          {isCompany
+          {isCompany && durationMinutes === 40
+            ? `RECROOTS 取材（${durationMinutes}分） · Google Meet`
+            : isCompany
             ? `商談（${durationMinutes}分） · Google Meet`
             : `面談（${durationMinutes}分） · 電話`}
         </p>
@@ -689,6 +691,8 @@ function BookingPageContent() {
     }
   }
 
+  // 企業40分はRECROOTSの取材枠として運用している。商談とは別物なので文言もロゴも分ける。
+  const isInterview = isCompany && durationMinutes === 40;
   const accentBg = isCompany ? "bg-blue-600 hover:bg-blue-700" : "bg-violet-600 hover:bg-violet-700";
   const accentText = isCompany ? "text-blue-600" : "text-violet-600";
 
@@ -697,12 +701,18 @@ function BookingPageContent() {
       {/* カバー。予約の画面だと一目で分かるよう、社名ロゴを最上部に置く */}
       <div className="mb-6 rounded-2xl border border-gray-200 bg-white px-6 py-8 shadow-sm">
         <Image
-          src="/hokiraon-logo.png"
-          alt="ホキラオン株式会社"
-          width={660}
-          height={260}
+          src={isInterview ? "/recroots-logo.png" : "/hokiraon-logo.png"}
+          alt={isInterview ? "RECROOTS" : "ホキラオン株式会社"}
+          width={isInterview ? 700 : 660}
+          height={isInterview ? 381 : 260}
           priority
-          className="mx-auto h-16 w-auto md:h-20"
+          className={
+            isInterview
+              // RECROOTSのロゴは横長でタグラインが小さい。高さ基準だと読めないので幅で決める。
+              // 画像自体が薄いクリーム地なので、角を丸めて意図した面に見せる。
+              ? "mx-auto h-auto w-64 rounded-xl md:w-80"
+              : "mx-auto h-16 w-auto md:h-20"
+          }
         />
       </div>
 
@@ -716,14 +726,20 @@ function BookingPageContent() {
                 : "bg-violet-100 text-violet-700"
             }`}
           >
-            {isCompany ? "企業の方" : "個人の方"}
+            {isInterview ? "RECROOTS 取材" : isCompany ? "企業の方" : "個人の方"}
           </span>
         </div>
         <h1 className="text-2xl font-bold text-gray-900">
-          {isCompany ? "商談のご予約" : "面談のご予約"}
+          {isInterview
+            ? "取材のお申し込み"
+            : isCompany
+            ? "商談のご予約"
+            : "面談のご予約"}
         </h1>
         <p className="text-gray-500 text-sm mt-1">
-          {isCompany
+          {isInterview
+            ? `${durationMinutes}分間のオンライン取材`
+            : isCompany
             ? `${durationMinutes}分間のオンライン商談`
             : `${durationMinutes}分間の面談（電話）`}
         </p>
